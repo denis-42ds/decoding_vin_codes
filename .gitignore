@@ -1,0 +1,6 @@
+data
+.env_vin
+.git
+.ipynb_checkpoints
+run_jupyter.sh
+
