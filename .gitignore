@@ -1,6 +1,9 @@
 data
+mlflow_experiments_store
+__pycache__
 .env_vin
 .git
 .ipynb_checkpoints
 run_jupyter.sh
-
+run_mlflow_server.sh
+.env

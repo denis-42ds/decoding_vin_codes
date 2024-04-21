@@ -7,6 +7,8 @@
 ## Описание рабочих файлов:
 - [decoding_vin_codes.ipynb](https://github.com/denis-42ds/decoding_vin_codes/blob/development/decoding_vin_codes.ipynb) - рабочая тетрадь с исследованиями, визуализациями и текстовыми описаниями
 - [requirements.txt](https://github.com/denis-42ds/decoding_vin_codes/blob/development/requirements.txt) - список зависимостей, необходимых для работы проекта, а также их версии
+- [research_class.py](https://github.com/denis-42ds/decoding_vin_codes/blob/development/research_class.py) - файл, содержащий класс для проведения исследования
+- [assets](https://github.com/denis-42ds/decoding_vin_codes/tree/development/assets) - директория с сохранёнными артефактами
 
 ## Установка зависимостей и запуск проекта
 ```Bash
