@@ -8,8 +8,10 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+from catboost import Pool, CatBoostRegressor
 from phik.report import plot_correlation_matrix
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, KFold, cross_validate, GridSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, mean_absolute_percentage_error
@@ -104,7 +106,7 @@ class DatasetExplorer:
         return X_train_sc, X_test_sc, y_train, y_test
 
     def model_fitting(self, model_name=None, features=None, labels=None, params=None, cv=None):
-        if model_name == 'Baseline' or model == 'LinearRegression':
+        if model_name == 'Baseline':
             model = LinearRegression(**params)
             model.fit(features, labels)
             cv_strategy = KFold(n_splits=cv)
@@ -117,11 +119,57 @@ class DatasetExplorer:
                     cv_res[key] = round(value.mean(), 3)
 
             print(f"Результаты кросс-валидации: {cv_res}")
-                        
-        elif model_name == 'RandomForest':
-            pass
 
-        return cv_res, model
+        elif model_name == 'CatBoost':
+            model = CatBoostRegressor(random_state=RANDOM_STATE,
+									  verbose=False,
+									  loss_function='RMSE')
+            train_pool = Pool(features,
+							  labels)
+            grid_search_result = model.grid_search(param_grid=params,
+												   cv=cv,
+												   X=train_pool,
+												   y=None,
+												   plot=False)
+            print("Лучший результат RMSE:", round(min(grid_search_result['cv_results']['test-RMSE-mean']), 3))
+            print("Лучшие гиперпараметры:", grid_search_result['params'])
+            
+            best_params = grid_search_result['params']
+
+            cv_res = {}
+            y_pred = model.predict(features)
+            cv_res['test_neg_mean_squared_error'] = round(min(grid_search_result['cv_results']['test-RMSE-mean']), 3)
+            cv_res['test_neg_mean_absolute_error'] = round(mean_absolute_error(labels, y_pred), 3)
+            cv_res['test_r2'] = round(r2_score(labels, y_pred), 3)
+            cv_res['test_neg_mean_absolute_percentage_error'] = round(mean_absolute_percentage_error(labels, y_pred), 3)
+                        
+        else:
+            if model_name == 'RandomForest':
+                model = RandomForestRegressor()
+
+            elif model_name == 'LinearRegression':
+                model = LinearRegression()
+			
+            grid_search = GridSearchCV(model,
+									   params,
+                                       cv=cv,
+                                       scoring=['neg_mean_squared_error', 'r2', 'neg_mean_absolute_error', 'neg_mean_absolute_percentage_error'],
+                                       refit='neg_mean_squared_error')
+            grid_search.fit(features, labels)
+            cv_res = {'test_neg_mean_squared_error': round(-grid_search.cv_results_['mean_test_neg_mean_squared_error'].mean(), 3),
+					  'test_r2': round(grid_search.cv_results_['mean_test_r2'].mean(), 3),
+					  'test_neg_mean_absolute_error': round(-grid_search.cv_results_['mean_test_neg_mean_absolute_error'].mean(), 3),
+					  'test_neg_mean_absolute_percentage_error': round(-grid_search.cv_results_['mean_test_neg_mean_absolute_percentage_error'].mean(), 3)}
+            print(f"Результаты кросс-валидации: {cv_res}")
+            print(f"\nЛучшие гиперпараметры: {grid_search.best_params_}")
+            model = grid_search.best_estimator_
+            model.fit(features, labels)
+            best_parms = grid_search.best_params_
+            
+        try:
+            return cv_res, model, best_params
+        except:
+            return cv_res, model
 
     def model_logging(self,
 					  experiment_name=None,
@@ -152,8 +200,8 @@ class DatasetExplorer:
             mlflow.log_artifacts(assets_dir)
             mlflow.log_params(params)
             mlflow.log_metrics(metrics)
-            model_info = mlflow.sklearn.log_model(
-                sk_model=model,
+            model_info = mlflow.catboost.log_model(  #sklearn
+                cb_model=model,  #sk_model
                 artifact_path="models",
                 pip_requirements=pip_requirements,
                 signature=signature,
