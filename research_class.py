@@ -1,6 +1,7 @@
 # импорт модулей
 import os
 import re
+import shap
 import random
 import mlflow
 import numpy as np
@@ -164,7 +165,7 @@ class DatasetExplorer:
             print(f"\nЛучшие гиперпараметры: {grid_search.best_params_}")
             model = grid_search.best_estimator_
             model.fit(features, labels)
-            best_parms = grid_search.best_params_
+            best_params = grid_search.best_params_
             
         try:
             return cv_res, model, best_params
@@ -211,3 +212,20 @@ class DatasetExplorer:
                 registered_model_name=registry_model,
                 await_registration_for=60
 			)
+
+    def model_testing(self, model=None, test_features=None, test_labels=None):
+        test_pool = Pool(test_features,
+						 test_labels)
+        y_pred = model.predict(test_pool)
+        
+        print(f"MSE лучшей модели на отложенной выборке: {round(mean_squared_error(test_labels, y_pred), 3)}")
+        print(f"MAE лучшей модели на отложенной выборке: {round(mean_absolute_error(test_labels, y_pred), 3)}")
+        print(f"R2 лучшей модели на отложенной выборке: {round(r2_score(test_labels, y_pred), 3)}")
+        print(f"MAPE лучшей модели на отложенной выборке: {round(mean_absolute_percentage_error(test_labels, y_pred), 3)}")
+
+    def feature_importance(self, model=None, features=None, assets_dir=None):
+        explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
+        shap_values = explainer.shap_values(features)
+        shap.summary_plot(shap_values, features, plot_size=(14, 5))
+        if assets_dir:
+            plt.savefig(os.path.join(assets_dir, 'Features importance.png'))
